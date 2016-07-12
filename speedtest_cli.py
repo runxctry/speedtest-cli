@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # Copyright 2012-2015 Matt Martz
+# Copyright 2016 runxctry
 # All Rights Reserved.
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -25,13 +26,14 @@ import timeit
 import platform
 import threading
 
-__version__ = '0.3.4'
+__version__ = '0.3.4fastdotcom'
 
 # Some global variables we use
 user_agent = None
 source = None
 shutdown_event = None
 scheme = 'http'
+fastdotcom_urlget = None
 
 
 # Used for bound_interface
@@ -243,6 +245,7 @@ class FileGetter(threading.Thread):
         threading.Thread.__init__(self)
 
     def run(self):
+        global fastdotcom_urlget
         self.result = [0]
         try:
             if (timeit.default_timer() - self.starttime) <= 10:
@@ -252,6 +255,7 @@ class FileGetter(threading.Thread):
                     self.result.append(len(f.read(10240)))
                     if self.result[-1] == 0:
                         break
+                fastdotcom_urlget = f.geturl()
                 f.close()
         except IOError:
             pass
@@ -547,8 +551,29 @@ def version():
     raise SystemExit(__version__)
 
 
+def fast(args):
+    """Run fast.com logic"""
+    global fastdotcom_urlget
+    scheme='https'
+    urls=[]
+    urls.append('https://api.fast.com/netflix/speedtest?https=true')
+
+    if not args.simple:
+        print_('Testing download speed', end='')
+
+    dlspeed = downloadSpeed(urls, args.simple)
+    
+    if not args.simple:
+        print_()
+        print_("Redirected CDN location: %s" % (fastdotcom_urlget))
+        print_()
+    print_('Download: %0.2f M%s/s' %
+           ((dlspeed / 1000 / 1000) * args.units[1], args.units[0]))
+    return dlspeed
+
+
 def speedtest():
-    """Run the full speedtest.net test"""
+    """Run speedtest.net or fast.com speed test"""
 
     global shutdown_event, source, scheme
     shutdown_event = threading.Event()
@@ -557,10 +582,10 @@ def speedtest():
 
     description = (
         'Command line interface for testing internet bandwidth using '
-        'speedtest.net.\n'
+        'speedtest.net or fast.com.\n'
         '------------------------------------------------------------'
         '--------------\n'
-        'https://github.com/sivel/speedtest-cli')
+        'https://github.com/runxctry/speedtest-cli')
 
     parser = ArgParser(description=description)
     # Give optparse.OptionParser an `add_argument` method for
@@ -592,6 +617,8 @@ def speedtest():
                              'with speedtest.net operated servers')
     parser.add_argument('--version', action='store_true',
                         help='Show the version number and exit')
+    parser.add_argument('--fast', action='store_true',
+                        help='Use Netflix\'s fast.com servers to measure speed.')
 
     options = parser.parse_args()
     if isinstance(options, tuple):
@@ -608,6 +635,9 @@ def speedtest():
 
     # Pre-cache the user agent string
     build_user_agent()
+    if args.fast:
+        fast(args)
+        sys.exit(0)
 
     # If specified bind to a specific IP address
     if args.source:
