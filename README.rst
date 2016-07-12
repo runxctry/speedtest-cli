@@ -44,13 +44,13 @@ Github
 
 ::
 
-    pip install git+https://github.com/sivel/speedtest-cli.git
+    pip install git+https://github.com/runxctry/speedtest-cli.git
 
 or
 
 ::
 
-    git clone https://github.com/sivel/speedtest-cli.git
+    git clone https://github.com/runxctry/speedtest-cli.git
     python speedtest-cli/setup.py install
 
 Just download (Like the way it used to be)
@@ -80,7 +80,7 @@ Usage
 
     Command line interface for testing internet bandwidth using speedtest.net.
     --------------------------------------------------------------------------
-    https://github.com/sivel/speedtest-cli
+    https://github.com/runxctry/speedtest-cli
 
     optional arguments:
       -h, --help         show this help message and exit
