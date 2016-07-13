@@ -27,7 +27,7 @@ import platform
 import threading
 import collections
 
-__version__ = '0.3.4fastdotcom'
+__version__ = '0.3.4fastdotcom.1'
 
 # Some global variables we use
 user_agent = None
