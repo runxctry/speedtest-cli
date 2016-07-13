@@ -2,7 +2,7 @@ speedtest-cli
 =============
 
 Command line interface for testing internet bandwidth using
-speedtest.net
+speedtest.net or fast.com
 
 .. image:: https://img.shields.io/pypi/v/speedtest-cli.svg
         :target: https://pypi.python.org/pypi/speedtest-cli/
@@ -44,13 +44,13 @@ Github
 
 ::
 
-    pip install git+https://github.com/sivel/speedtest-cli.git
+    pip install git+https://github.com/runxctry/speedtest-cli.git
 
 or
 
 ::
 
-    git clone https://github.com/sivel/speedtest-cli.git
+    git clone https://github.com/runxctry/speedtest-cli.git
     python speedtest-cli/setup.py install
 
 Just download (Like the way it used to be)
@@ -58,14 +58,14 @@ Just download (Like the way it used to be)
 
 ::
 
-    wget -O speedtest-cli https://raw.githubusercontent.com/sivel/speedtest-cli/master/speedtest_cli.py
+    wget -O speedtest-cli https://raw.githubusercontent.com/runxctry/speedtest-cli/master/speedtest_cli.py
     chmod +x speedtest-cli
 
 or
 
 ::
 
-    curl -Lo speedtest-cli https://raw.githubusercontent.com/sivel/speedtest-cli/master/speedtest_cli.py
+    curl -Lo speedtest-cli https://raw.githubusercontent.com/runxctry/speedtest-cli/master/speedtest_cli.py
     chmod +x speedtest-cli
 
 Usage
@@ -76,11 +76,11 @@ Usage
     $ speedtest-cli -h
     usage: speedtest-cli [-h] [--bytes] [--share] [--simple] [--list]
                          [--server SERVER] [--mini MINI] [--source SOURCE]
-                         [--timeout TIMEOUT] [--secure] [--version]
+                         [--timeout TIMEOUT] [--secure] [--version] [--fast]
 
     Command line interface for testing internet bandwidth using speedtest.net.
     --------------------------------------------------------------------------
-    https://github.com/sivel/speedtest-cli
+    https://github.com/runxctry/speedtest-cli
 
     optional arguments:
       -h, --help         show this help message and exit
@@ -97,6 +97,7 @@ Usage
       --timeout TIMEOUT  HTTP timeout in seconds. Default 10
       --secure           Use HTTPS instead of HTTP when communicating with
                          speedtest.net operated servers
+      --fast             Use Netflix's fast.com servers to measure speed.
       --version          Show the version number and exit
 
 Inconsistency
