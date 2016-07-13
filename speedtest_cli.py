@@ -25,6 +25,7 @@ import socket
 import timeit
 import platform
 import threading
+import collections
 
 __version__ = '0.3.4fastdotcom'
 
@@ -33,8 +34,9 @@ user_agent = None
 source = None
 shutdown_event = None
 scheme = 'http'
-fastdotcom_urlget = None
 
+fastdotcom_urlget = None
+throughput = collections.namedtuple('Throughput', ['bps', 'bites', 'secs'])
 
 # Used for bound_interface
 socket_socket = socket.socket
@@ -295,7 +297,12 @@ def downloadSpeed(files, quiet=False):
         prod_thread.join(timeout=0.1)
     while cons_thread.isAlive():
         cons_thread.join(timeout=0.1)
-    return (sum(finished) / (timeit.default_timer() - start))
+
+    return throughput(
+        sum(finished) / (timeit.default_timer() - start),
+        sum(finished),
+        (timeit.default_timer() - start)
+        )
 
 
 class FilePutter(threading.Thread):
@@ -360,7 +367,12 @@ def uploadSpeed(url, sizes, quiet=False):
         prod_thread.join(timeout=0.1)
     while cons_thread.isAlive():
         cons_thread.join(timeout=0.1)
-    return (sum(finished) / (timeit.default_timer() - start))
+
+    return throughput(
+        sum(finished) / (timeit.default_timer() - start),
+        sum(finished),
+        (timeit.default_timer() - start)
+        )
 
 
 def getAttributesByTagName(dom, tagName):
@@ -567,8 +579,10 @@ def fast(args):
         print_()
         print_("Redirected CDN location: %s" % (fastdotcom_urlget))
         print_()
-    print_('Download: %0.2f M%s/s' %
-           ((dlspeed / 1000 / 1000) * args.units[1], args.units[0]))
+        print_('Download:\t%0.2f M%s/s' %
+           ((dlspeed.bps / 1000 / 1000) * args.units[1], args.units[0]))
+    else:
+        print_('Download:\t%0.2f bps' % (dlspeed.bites*8/dlspeed.secs))
     return dlspeed
 
 
@@ -603,7 +617,7 @@ def speedtest():
                              'share results image')
     parser.add_argument('--simple', action='store_true',
                         help='Suppress verbose output, only show basic '
-                             'information')
+                             'information. Disables --bytes, speeds in bps')
     parser.add_argument('--list', action='store_true',
                         help='Display a list of speedtest.net servers '
                              'sorted by distance')
@@ -615,10 +629,15 @@ def speedtest():
     parser.add_argument('--secure', action='store_true',
                         help='Use HTTPS instead of HTTP when communicating '
                              'with speedtest.net operated servers')
+    parser.add_argument('--fast', action='store_true',
+                        help='Use Netflix\'s fast.com servers to measure DL'
+                        ' speed only. Bypasses all other options.')
+    parser.add_argument('--noUL', action='store_true',
+                        help='Disable UL test', default=False)
+    parser.add_argument('--noDL', action='store_true',
+                        help='Disable DL test', default=False)
     parser.add_argument('--version', action='store_true',
                         help='Show the version number and exit')
-    parser.add_argument('--fast', action='store_true',
-                        help='Use Netflix\'s fast.com servers to measure speed.')
 
     options = parser.parse_args()
     if isinstance(options, tuple):
@@ -736,83 +755,100 @@ def speedtest():
         print_(('Hosted by %(sponsor)s (%(name)s) [%(d)0.2f km]: '
                '%(latency)s ms' % best).encode('utf-8', 'ignore'))
     else:
-        print_('Ping: %(latency)s ms' % best)
+        print_('Ping:\t\t%(latency)s ms' % best)
 
-    sizes = [350, 500, 750, 1000, 1500, 2000, 2500, 3000, 3500, 4000]
-    urls = []
-    for size in sizes:
-        for i in range(0, 4):
-            urls.append('%s/random%sx%s.jpg' %
-                        (os.path.dirname(best['url']), size, size))
-    if not args.simple:
-        print_('Testing download speed', end='')
-    dlspeed = downloadSpeed(urls, args.simple)
-    if not args.simple:
-        print_()
-    print_('Download: %0.2f M%s/s' %
-           ((dlspeed / 1000 / 1000) * args.units[1], args.units[0]))
 
-    sizesizes = [int(.25 * 1000 * 1000), int(.5 * 1000 * 1000)]
-    sizes = []
-    for size in sizesizes:
-        for i in range(0, 25):
-            sizes.append(size)
-    if not args.simple:
-        print_('Testing upload speed', end='')
-    ulspeed = uploadSpeed(best['url'], sizes, args.simple)
-    if not args.simple:
-        print_()
-    print_('Upload: %0.2f M%s/s' %
-           ((ulspeed / 1000 / 1000) * args.units[1], args.units[0]))
+    # Begin DL test.
+    if not args.noDL:
+        sizes = [350, 500, 750, 1000, 1500, 2000, 2500, 3000, 3500, 4000]
+        urls = []
+        for size in sizes:
+            for i in range(0, 4):
+                urls.append('%s/random%sx%s.jpg' %
+                            (os.path.dirname(best['url']), size, size))
+        if not args.simple:
+            print_('Testing download speed', end='')
+        dlspeed = downloadSpeed(urls, args.simple)
+        if not args.simple:
+            print_()
+            print_('Download:\t%0.2f M%s/s' %
+               ((dlspeed.bps / 1000 / 1000) * args.units[1], args.units[0]))
+        else:
+            print_('Download:\t%0.2f bps' % (dlspeed.bites*8/dlspeed.secs))
+    else:
+        print_('DL test disabled.')
+    
+    if not args.noUL:
+        sizesizes = [int(.25 * 1000 * 1000), int(.5 * 1000 * 1000)]
+        sizes = []
+        for size in sizesizes:
+            for i in range(0, 25):
+                sizes.append(size)
+        if not args.simple:
+            print_('Testing upload speed', end='')
+        ulspeed = uploadSpeed(best['url'], sizes, args.simple)
+        if not args.simple:
+            print_()
+            print_('Upload:\t\t%0.2f M%s/s' %
+               ((ulspeed.bps / 1000 / 1000) * args.units[1], args.units[0]))
+        else:
+            print_('Upload:\t\t%0.2f bps' %
+               (ulspeed.bites * 8 / ulspeed.secs))
+    else:
+        print_('UL test disabled.')
 
-    if args.share and args.mini:
-        print_('Cannot generate a speedtest.net share results image while '
+    # Share results
+    if args.share :
+        if args.mini:
+            print_('Cannot generate a speedtest.net share results image while '
                'testing against a Speedtest Mini server')
-    elif args.share:
-        dlspeedk = int(round((dlspeed / 1000) * 8, 0))
-        ping = int(round(best['latency'], 0))
-        ulspeedk = int(round((ulspeed / 1000) * 8, 0))
+        elif args.noUL or args.noDL:
+            print_('UL or DL test disabled, cannot share results.')
+        else:
+            dlspeedk = int(round((dlspeed / 1000) * 8, 0))
+            ping = int(round(best['latency'], 0))
+            ulspeedk = int(round((ulspeed / 1000) * 8, 0))
 
-        # Build the request to send results back to speedtest.net
-        # We use a list instead of a dict because the API expects parameters
-        # in a certain order
-        apiData = [
-            'download=%s' % dlspeedk,
-            'ping=%s' % ping,
-            'upload=%s' % ulspeedk,
-            'promo=',
-            'startmode=%s' % 'pingselect',
-            'recommendedserverid=%s' % best['id'],
-            'accuracy=%s' % 1,
-            'serverid=%s' % best['id'],
-            'hash=%s' % md5(('%s-%s-%s-%s' %
-                             (ping, ulspeedk, dlspeedk, '297aae72'))
-                            .encode()).hexdigest()]
+            # Build the request to send results back to speedtest.net
+            # We use a list instead of a dict because the API expects parameters
+            # in a certain order
+            apiData = [
+                'download=%s' % dlspeedk,
+                'ping=%s' % ping,
+                'upload=%s' % ulspeedk,
+                'promo=',
+                'startmode=%s' % 'pingselect',
+                'recommendedserverid=%s' % best['id'],
+                'accuracy=%s' % 1,
+                'serverid=%s' % best['id'],
+                'hash=%s' % md5(('%s-%s-%s-%s' %
+                                 (ping, ulspeedk, dlspeedk, '297aae72'))
+                                .encode()).hexdigest()]
 
-        headers = {'Referer': 'http://c.speedtest.net/flash/speedtest.swf'}
-        request = build_request('://www.speedtest.net/api/api.php',
-                                data='&'.join(apiData).encode(),
-                                headers=headers)
-        f, e = catch_request(request)
-        if e:
-            print_('Could not submit results to speedtest.net: %s' % e)
-            sys.exit(1)
-        response = f.read()
-        code = f.code
-        f.close()
+            headers = {'Referer': 'http://c.speedtest.net/flash/speedtest.swf'}
+            request = build_request('://www.speedtest.net/api/api.php',
+                                    data='&'.join(apiData).encode(),
+                                    headers=headers)
+            f, e = catch_request(request)
+            if e:
+                print_('Could not submit results to speedtest.net: %s' % e)
+                sys.exit(1)
+            response = f.read()
+            code = f.code
+            f.close()
 
-        if int(code) != 200:
-            print_('Could not submit results to speedtest.net')
-            sys.exit(1)
+            if int(code) != 200:
+                print_('Could not submit results to speedtest.net')
+                sys.exit(1)
 
-        qsargs = parse_qs(response.decode())
-        resultid = qsargs.get('resultid')
-        if not resultid or len(resultid) != 1:
-            print_('Could not submit results to speedtest.net')
-            sys.exit(1)
+            qsargs = parse_qs(response.decode())
+            resultid = qsargs.get('resultid')
+            if not resultid or len(resultid) != 1:
+                print_('Could not submit results to speedtest.net')
+                sys.exit(1)
 
-        print_('Share results: %s://www.speedtest.net/result/%s.png' %
-               (scheme, resultid[0]))
+            print_('Share results: %s://www.speedtest.net/result/%s.png' %
+                   (scheme, resultid[0]))
 
 
 def main():
